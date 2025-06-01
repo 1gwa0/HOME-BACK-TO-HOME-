@@ -5,18 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>互動截圖遊戲</title>
   <style>
-    * { box-sizing: border-box; }
     body {
       margin: 0;
       background: #000;
       color: #fff;
-      text-align: center;
       font-family: sans-serif;
+      text-align: center;
+    }
+    #container {
+      position: relative;
+      width: 100%;
+      max-width: 360px; /* 比例 9:16 */
+      margin: auto;
     }
     video, canvas {
       width: 100%;
-      max-width: 500px;
-      height: auto;
+      aspect-ratio: 9/16;
+      border-radius: 8px;
     }
     #controls {
       margin-top: 1em;
@@ -31,15 +36,14 @@
       color: white;
       cursor: pointer;
     }
-    button:active {
-      background-color: #e65c00;
-    }
   </style>
 </head>
 <body>
   <h2>請對準鏡頭，拍下屬於你的畫面</h2>
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas" style="display:none;"></canvas>
+  <div id="container">
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+  </div>
   <div id="controls">
     <button id="capture">拍照</button>
     <button id="download" style="display:none;">下載圖片</button>
@@ -51,8 +55,9 @@
     const downloadBtn = document.getElementById('download');
     const context = canvas.getContext('2d');
     const template = new Image();
-    template.src = 'template.png'; // 請確保此檔案與 index.html 同一層
+    template.src = 'template.png'; // 確保這張圖與 index.html 同層
 
+    // 開啟後鏡頭
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       .then(stream => {
         video.srcObject = stream;
@@ -62,24 +67,31 @@
       });
 
     captureBtn.addEventListener('click', () => {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // 設定 canvas 固定為 1080x1920
+      canvas.width = 1080;
+      canvas.height = 1920;
+
+      // 將攝影機畫面畫到 canvas 上（填滿 1080x1920）
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      template.onload = () => {
-        context.drawImage(template, 0, 0, canvas.width, canvas.height);
-        canvas.style.display = 'block';
-        video.style.display = 'none';
-        captureBtn.style.display = 'none';
-        downloadBtn.style.display = 'inline-block';
-      };
+
+      // 疊加 template（等 template 載入完）
       if (template.complete) {
-        context.drawImage(template, 0, 0, canvas.width, canvas.height);
-        canvas.style.display = 'block';
-        video.style.display = 'none';
-        captureBtn.style.display = 'none';
-        downloadBtn.style.display = 'inline-block';
+        context.drawImage(template, 0, 0, 1080, 1920);
+        finishCapture();
+      } else {
+        template.onload = () => {
+          context.drawImage(template, 0, 0, 1080, 1920);
+          finishCapture();
+        };
       }
     });
+
+    function finishCapture() {
+      canvas.style.display = 'block';
+      video.style.display = 'none';
+      captureBtn.style.display = 'none';
+      downloadBtn.style.display = 'inline-block';
+    }
 
     downloadBtn.addEventListener('click', () => {
       const link = document.createElement('a');
