@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>互動截圖遊戲</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      text-align: center;
+      font-family: sans-serif;
+    }
+    video, canvas {
+      width: 100%;
+      max-width: 500px;
+      height: auto;
+    }
+    #controls {
+      margin-top: 1em;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 0 10px;
+      border: none;
+      border-radius: 8px;
+      background-color: #ff6600;
+      color: white;
+      cursor: pointer;
+    }
+    button:active {
+      background-color: #e65c00;
+    }
+  </style>
+</head>
+<body>
+  <h2>請對準鏡頭，拍下屬於你的畫面</h2>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <div id="controls">
+    <button id="capture">拍照</button>
+    <button id="download" style="display:none;">下載圖片</button>
+  </div>
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const captureBtn = document.getElementById('capture');
+    const downloadBtn = document.getElementById('download');
+    const context = canvas.getContext('2d');
+    const template = new Image();
+    template.src = 'template.png'; // 請確保此檔案與 index.html 同一層
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream => {
+        video.srcObject = stream;
+      })
+      .catch(err => {
+        alert('無法存取相機：' + err);
+      });
+
+    captureBtn.addEventListener('click', () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      template.onload = () => {
+        context.drawImage(template, 0, 0, canvas.width, canvas.height);
+        canvas.style.display = 'block';
+        video.style.display = 'none';
+        captureBtn.style.display = 'none';
+        downloadBtn.style.display = 'inline-block';
+      };
+      if (template.complete) {
+        context.drawImage(template, 0, 0, canvas.width, canvas.height);
+        canvas.style.display = 'block';
+        video.style.display = 'none';
+        captureBtn.style.display = 'none';
+        downloadBtn.style.display = 'inline-block';
+      }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = 'screenshot.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+  </script>
+</body>
+</html>
