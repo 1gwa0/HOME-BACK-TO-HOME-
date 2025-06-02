@@ -1,171 +1,123 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>互動拍照遊戲</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, initial-scale=1.0">
+  <title>互動濾鏡拍照</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background: black;
+      background: #000;
       overflow: hidden;
     }
     #container {
       position: relative;
-      width: 100vw;
-      height: 100vh;
-      max-width: 1080px;
-      max-height: 1920px;
-      margin: auto;
-      background: black;
+      width: 1080px;
+      height: 1920px;
+      margin: 0 auto;
     }
-    video {
+    video, canvas, img {
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
+      width: 1080px;
+      height: 1920px;
       object-fit: cover;
-      z-index: 1;
     }
-    #photo-layer img {
-      position: absolute;
-      width: 74%;
-      height: 18%;
-      left: 13%;
-      object-fit: cover;
-      z-index: 2;
-    }
-    #slot0 { top: 7%; }
-    #slot1 { top: 29%; }
-    #slot2 { top: 51%; }
-    #slot3 { top: 73%; }
-
-    #template {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-      object-fit: contain;
-      z-index: 3;
-      pointer-events: none;
-    }
-
     #controls {
-      position: absolute;
+      position: fixed;
       bottom: 20px;
-      width: 100%;
-      text-align: center;
-      z-index: 4;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
     }
-
     button {
-      font-size: 1.2rem;
+      font-size: 20px;
+      padding: 12px 20px;
       margin: 0 10px;
-      padding: 10px 20px;
       border-radius: 8px;
       border: none;
-      background-color: #fff;
-      color: #000;
+      background-color: #ff9900;
+      color: white;
       cursor: pointer;
-    }
-
-    canvas {
-      display: none;
     }
   </style>
 </head>
 <body>
   <div id="container">
-    <video id="video" autoplay playsinline muted></video>
-    <div id="photo-layer">
-      <img id="slot0">
-      <img id="slot1">
-      <img id="slot2">
-      <img id="slot3">
-    </div>
-    <img id="template" src="template.png" alt="Template">
-    <div id="controls">
-      <button id="capture">📸 拍照</button>
-      <button id="download" disabled>⬇️ 下載</button>
-    </div>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="photoCanvas" width="1080" height="1920"></canvas>
+    <img id="template" src="template.png" alt="template" />
   </div>
-
-  <canvas id="canvas" width="1080" height="1920"></canvas>
+  <div id="controls">
+    <button onclick="takePhoto()">📸 拍照</button>
+    <button onclick="downloadImage()">💾 下載</button>
+  </div>
 
   <script>
     const video = document.getElementById('video');
-    const captureBtn = document.getElementById('capture');
-    const downloadBtn = document.getElementById('download');
-    const canvas = document.getElementById('canvas');
+    const canvas = document.getElementById('photoCanvas');
     const ctx = canvas.getContext('2d');
+    let photoCount = 0;
 
-    const slots = [
-      document.getElementById('slot0'),
-      document.getElementById('slot1'),
-      document.getElementById('slot2'),
-      document.getElementById('slot3')
-    ];
-
-    let images = [];
-
-    async function initCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { exact: 'environment' }, width: 1080, height: 1920 }
-        });
-        video.srcObject = stream;
-      } catch (e) {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
+    // 啟用後鏡頭
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { exact: "environment" }, // 後鏡頭
+        width: { ideal: 1080 },
+        height: { ideal: 1920 }
       }
+    })
+    .then(stream => {
+      video.srcObject = stream;
+    })
+    .catch(err => {
+      alert("⚠️ 錯誤：無法啟用後鏡頭。請檢查相機權限。");
+      console.error(err);
+    });
+
+    // 拍照並畫到 canvas 上
+    function takePhoto() {
+      if (photoCount >= 4) {
+        alert("已經拍滿四張照片囉！");
+        return;
+      }
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 1080;
+      tempCanvas.height = 1920;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.drawImage(video, 0, 0, 1080, 1920);
+
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, 1080, 1920); // 疊在 canvas 上（每次覆蓋透明處）
+      };
+      img.src = tempCanvas.toDataURL('image/png');
+
+      photoCount++;
     }
 
-    initCamera();
+    // 下載整個畫面（含 template）
+    function downloadImage() {
+      const outputCanvas = document.createElement('canvas');
+      outputCanvas.width = 1080;
+      outputCanvas.height = 1920;
+      const outputCtx = outputCanvas.getContext('2d');
 
-    captureBtn.onclick = () => {
-      if (images.length >= 4) return;
-      ctx.drawImage(video, 0, 0, 1080, 1920);
-      const dataUrl = canvas.toDataURL('image/png');
-      images.push(dataUrl);
-      slots[images.length - 1].src = dataUrl;
-      if (images.length === 4) downloadBtn.disabled = false;
-    };
+      // 先畫背景照片
+      outputCtx.drawImage(canvas, 0, 0);
 
-    downloadBtn.onclick = () => {
-      const final = document.createElement('canvas');
-      final.width = 1080;
-      final.height = 1920;
-      const fctx = final.getContext('2d');
+      // 再畫上 template（簍空 PNG）
+      const templateImg = document.getElementById('template');
+      outputCtx.drawImage(templateImg, 0, 0, 1080, 1920);
 
-      const drawImageAt = (src, x, y, w, h) => new Promise(resolve => {
-        const img = new Image();
-        img.onload = () => {
-          fctx.drawImage(img, x, y, w, h);
-          resolve();
-        };
-        img.src = src;
-      });
-
-      Promise.all([
-        drawImageAt(images[0], 0.13 * 1080, 0.07 * 1920, 0.74 * 1080, 0.18 * 1920),
-        drawImageAt(images[1], 0.13 * 1080, 0.29 * 1920, 0.74 * 1080, 0.18 * 1920),
-        drawImageAt(images[2], 0.13 * 1080, 0.51 * 1920, 0.74 * 1080, 0.18 * 1920),
-        drawImageAt(images[3], 0.13 * 1080, 0.73 * 1920, 0.74 * 1080, 0.18 * 1920)
-      ]).then(() => {
-        const overlay = new Image();
-        overlay.onload = () => {
-          fctx.drawImage(overlay, 0, 0, 1080, 1920);
-          const a = document.createElement('a');
-          a.href = final.toDataURL('image/png');
-          a.download = 'result.png';
-          a.click();
-        };
-        overlay.src = 'template.png';
-      });
-    };
+      const link = document.createElement('a');
+      link.download = 'filtered-photo.png';
+      link.href = outputCanvas.toDataURL('image/png');
+      link.click();
+    }
   </script>
 </body>
 </html>
