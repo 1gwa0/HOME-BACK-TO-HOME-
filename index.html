@@ -1,128 +1,131 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=1080, initial-scale=1.0">
-  <title>互動濾鏡拍照</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>四連拍模板遊戲</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background: #000;
+      background: black;
       overflow: hidden;
+      font-family: sans-serif;
     }
+
     #container {
-  position: relative;
-  width: 100vw;
-  height: 177.78vw; /* 1080:1920 = 9:16 = 100:177.78 */
-  max-height: 100vh;
-  overflow: hidden;
-  background: #000;
-
- }
-
-video, canvas, img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-
+      position: relative;
+      width: 100vw;
+      height: 177.78vw; /* 9:16 比例 */
+      max-height: 100vh;
+      overflow: hidden;
+      background: #000;
     }
+
+    video, canvas, img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
     #controls {
-      position: fixed;
-      bottom: 20px;
+      position: absolute;
+      bottom: 80px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 10;
+      z-index: 5;
+      display: flex;
+      gap: 16px;
     }
+
     button {
-      font-size: 20px;
-      padding: 12px 20px;
-      margin: 0 10px;
-      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 16px;
       border: none;
-      background-color: #ff9900;
+      border-radius: 8px;
+      background: rgba(255, 153, 0, 0.85);
       color: white;
+      font-weight: bold;
       cursor: pointer;
+    }
+
+    button:disabled {
+      background: gray;
+      cursor: not-allowed;
     }
   </style>
 </head>
 <body>
   <div id="container">
     <video id="video" autoplay playsinline></video>
-    <canvas id="photoCanvas" width="1080" height="1920"></canvas>
+    <canvas id="canvas" width="1080" height="1920"></canvas>
     <img id="template" src="template.png" alt="template" />
-  </div>
-  <div id="controls">
-    <button onclick="takePhoto()">📸 拍照</button>
-    <button onclick="downloadImage()">💾 下載</button>
+    <div id="controls">
+      <button id="captureBtn">📸 拍照 (1/4)</button>
+      <button id="downloadBtn" disabled>⬇️ 下載</button>
+    </div>
   </div>
 
   <script>
     const video = document.getElementById('video');
-    const canvas = document.getElementById('photoCanvas');
+    const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    let photoCount = 0;
+    const captureBtn = document.getElementById('captureBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const templateImg = document.getElementById('template');
 
-    // 啟用後鏡頭
+    let photos = [];
+    let currentPhoto = 0;
+
     navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { exact: "environment" }, // 後鏡頭
-        width: { ideal: 1080 },
-        height: { ideal: 1920 }
-      }
-    })
-    .then(stream => {
+      video: { facingMode: { exact: "environment" } }, // 後鏡頭
+      audio: false
+    }).then(stream => {
       video.srcObject = stream;
-    })
-    .catch(err => {
-      alert("⚠️ 錯誤：無法啟用後鏡頭。請檢查相機權限。");
-      console.error(err);
+    }).catch(() => {
+      alert("無法啟用後鏡頭，請確認權限。");
     });
 
-    // 拍照並畫到 canvas 上
-    function takePhoto() {
-      if (photoCount >= 4) {
-        alert("已經拍滿四張照片囉！");
-        return;
-      }
+    captureBtn.addEventListener('click', () => {
+      if (currentPhoto >= 4) return;
 
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = 1080;
-      tempCanvas.height = 1920;
-      const tempCtx = tempCanvas.getContext('2d');
-      tempCtx.drawImage(video, 0, 0, 1080, 1920);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      photos.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      currentPhoto++;
+
+      if (currentPhoto < 4) {
+        captureBtn.textContent = `📸 拍照 (${currentPhoto + 1}/4)`;
+      } else {
+        captureBtn.disabled = true;
+        captureBtn.textContent = `✅ 拍攝完成`;
+        drawFinalComposite();
+        downloadBtn.disabled = false;
+      }
+    });
+
+    function drawFinalComposite() {
+      // 把四張照片貼在 canvas 上，暫時簡單覆蓋
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < 4; i++) {
+        ctx.putImageData(photos[i], 0, 0);
+      }
 
       const img = new Image();
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, 1080, 1920); // 疊在 canvas 上（每次覆蓋透明處）
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height); // 模板疊最上層
       };
-      img.src = tempCanvas.toDataURL('image/png');
-
-      photoCount++;
+      img.src = templateImg.src;
     }
 
-    // 下載整個畫面（含 template）
-    function downloadImage() {
-      const outputCanvas = document.createElement('canvas');
-      outputCanvas.width = 1080;
-      outputCanvas.height = 1920;
-      const outputCtx = outputCanvas.getContext('2d');
-
-      // 先畫背景照片
-      outputCtx.drawImage(canvas, 0, 0);
-
-      // 再畫上 template（簍空 PNG）
-      const templateImg = document.getElementById('template');
-      outputCtx.drawImage(templateImg, 0, 0, 1080, 1920);
-
+    downloadBtn.addEventListener('click', () => {
       const link = document.createElement('a');
-      link.download = 'filtered-photo.png';
-      link.href = outputCanvas.toDataURL('image/png');
+      link.download = 'HOME.png';
+      link.href = canvas.toDataURL('image/png');
       link.click();
-    }
+    });
   </script>
 </body>
 </html>
