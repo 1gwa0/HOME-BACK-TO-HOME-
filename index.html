@@ -1,104 +1,171 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>互動截圖遊戲</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>互動拍照遊戲</title>
   <style>
-    body {
+    html, body {
       margin: 0;
-      background: #000;
-      color: #fff;
-      font-family: sans-serif;
-      text-align: center;
+      padding: 0;
+      background: black;
+      overflow: hidden;
     }
     #container {
       position: relative;
-      width: 100%;
-      max-width: 360px; /* 比例 9:16 */
+      width: 100vw;
+      height: 100vh;
+      max-width: 1080px;
+      max-height: 1920px;
       margin: auto;
+      background: black;
     }
-    video, canvas {
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
-      aspect-ratio: 9/16;
-      border-radius: 8px;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
     }
+    #photo-layer img {
+      position: absolute;
+      width: 74%;
+      height: 18%;
+      left: 13%;
+      object-fit: cover;
+      z-index: 2;
+    }
+    #slot0 { top: 7%; }
+    #slot1 { top: 29%; }
+    #slot2 { top: 51%; }
+    #slot3 { top: 73%; }
+
+    #template {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      object-fit: contain;
+      z-index: 3;
+      pointer-events: none;
+    }
+
     #controls {
-      margin-top: 1em;
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      text-align: center;
+      z-index: 4;
     }
+
     button {
-      padding: 10px 20px;
-      font-size: 16px;
+      font-size: 1.2rem;
       margin: 0 10px;
-      border: none;
+      padding: 10px 20px;
       border-radius: 8px;
-      background-color: #ff6600;
-      color: white;
+      border: none;
+      background-color: #fff;
+      color: #000;
       cursor: pointer;
+    }
+
+    canvas {
+      display: none;
     }
   </style>
 </head>
 <body>
-  <h2>請對準鏡頭，拍下屬於你的畫面</h2>
   <div id="container">
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas" style="display:none;"></canvas>
+    <video id="video" autoplay playsinline muted></video>
+    <div id="photo-layer">
+      <img id="slot0">
+      <img id="slot1">
+      <img id="slot2">
+      <img id="slot3">
+    </div>
+    <img id="template" src="template.png" alt="Template">
+    <div id="controls">
+      <button id="capture">📸 拍照</button>
+      <button id="download" disabled>⬇️ 下載</button>
+    </div>
   </div>
-  <div id="controls">
-    <button id="capture">拍照</button>
-    <button id="download" style="display:none;">下載圖片</button>
-  </div>
+
+  <canvas id="canvas" width="1080" height="1920"></canvas>
+
   <script>
     const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
     const captureBtn = document.getElementById('capture');
     const downloadBtn = document.getElementById('download');
-    const context = canvas.getContext('2d');
-    const template = new Image();
-    template.src = 'template.png'; // 確保這張圖與 index.html 同層
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
 
-    // 開啟後鏡頭
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      .then(stream => {
+    const slots = [
+      document.getElementById('slot0'),
+      document.getElementById('slot1'),
+      document.getElementById('slot2'),
+      document.getElementById('slot3')
+    ];
+
+    let images = [];
+
+    async function initCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: 'environment' }, width: 1080, height: 1920 }
+        });
         video.srcObject = stream;
-      })
-      .catch(err => {
-        alert('無法存取相機：' + err);
-      });
-
-    captureBtn.addEventListener('click', () => {
-      // 設定 canvas 固定為 1080x1920
-      canvas.width = 1080;
-      canvas.height = 1920;
-
-      // 將攝影機畫面畫到 canvas 上（填滿 1080x1920）
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // 疊加 template（等 template 載入完）
-      if (template.complete) {
-        context.drawImage(template, 0, 0, 1080, 1920);
-        finishCapture();
-      } else {
-        template.onload = () => {
-          context.drawImage(template, 0, 0, 1080, 1920);
-          finishCapture();
-        };
+      } catch (e) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
       }
-    });
-
-    function finishCapture() {
-      canvas.style.display = 'block';
-      video.style.display = 'none';
-      captureBtn.style.display = 'none';
-      downloadBtn.style.display = 'inline-block';
     }
 
-    downloadBtn.addEventListener('click', () => {
-      const link = document.createElement('a');
-      link.download = 'screenshot.png';
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    });
+    initCamera();
+
+    captureBtn.onclick = () => {
+      if (images.length >= 4) return;
+      ctx.drawImage(video, 0, 0, 1080, 1920);
+      const dataUrl = canvas.toDataURL('image/png');
+      images.push(dataUrl);
+      slots[images.length - 1].src = dataUrl;
+      if (images.length === 4) downloadBtn.disabled = false;
+    };
+
+    downloadBtn.onclick = () => {
+      const final = document.createElement('canvas');
+      final.width = 1080;
+      final.height = 1920;
+      const fctx = final.getContext('2d');
+
+      const drawImageAt = (src, x, y, w, h) => new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          fctx.drawImage(img, x, y, w, h);
+          resolve();
+        };
+        img.src = src;
+      });
+
+      Promise.all([
+        drawImageAt(images[0], 0.13 * 1080, 0.07 * 1920, 0.74 * 1080, 0.18 * 1920),
+        drawImageAt(images[1], 0.13 * 1080, 0.29 * 1920, 0.74 * 1080, 0.18 * 1920),
+        drawImageAt(images[2], 0.13 * 1080, 0.51 * 1920, 0.74 * 1080, 0.18 * 1920),
+        drawImageAt(images[3], 0.13 * 1080, 0.73 * 1920, 0.74 * 1080, 0.18 * 1920)
+      ]).then(() => {
+        const overlay = new Image();
+        overlay.onload = () => {
+          fctx.drawImage(overlay, 0, 0, 1080, 1920);
+          const a = document.createElement('a');
+          a.href = final.toDataURL('image/png');
+          a.download = 'result.png';
+          a.click();
+        };
+        overlay.src = 'template.png';
+      });
+    };
   </script>
 </body>
 </html>
