@@ -62,7 +62,7 @@
   <div id="container">
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas" width="1080" height="1920"></canvas>
-    <img id="template" src="工作區域 1@4x.png" alt="template" />
+    <img id="template" src="template.png" alt="template" />
     <div id="controls">
       <button id="captureBtn">📸 拍照 (1/4)</button>
       <button id="downloadBtn" disabled>⬇️ 下載</button>
@@ -93,7 +93,6 @@
     captureBtn.addEventListener('click', () => {
       if (currentPhoto >= 4) return;
 
-      // 擷取一張圖像並儲存為 image
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = canvas.width;
       tempCanvas.height = canvas.height;
@@ -119,27 +118,32 @@
     function redrawCanvas() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // 每張照片依序疊上來
       photos.forEach(photo => {
         photo.onload = () => {
           ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
+          drawTemplate();
         };
         if (photo.complete) {
           ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
         }
       });
+      drawTemplate();
+    }
 
-      // 套模板在最上層
+    function drawTemplate() {
       const template = new Image();
       template.src = templateImg.src;
       template.onload = () => {
         ctx.drawImage(template, 0, 0, canvas.width, canvas.height);
       };
+      if (template.complete) {
+        ctx.drawImage(template, 0, 0, canvas.width, canvas.height);
+      }
     }
 
     downloadBtn.addEventListener('click', () => {
       const link = document.createElement('a');
-      link.download = 'HOME.png';
+      link.download = '四連拍.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
     });
