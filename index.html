@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>四連拍模板遊戲</title>
+  <title>四連拍遊戲</title>
   <style>
     html, body {
       margin: 0;
@@ -62,7 +62,7 @@
   <div id="container">
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas" width="1080" height="1920"></canvas>
-    <img id="template" src="template.png" alt="template" />
+    <img id="template" src="工作區域 1@4x.png" alt="template" />
     <div id="controls">
       <button id="captureBtn">📸 拍照 (1/4)</button>
       <button id="downloadBtn" disabled>⬇️ 下載</button>
@@ -80,8 +80,9 @@
     let photos = [];
     let currentPhoto = 0;
 
+    // 啟用後鏡頭
     navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { exact: "environment" } }, // 後鏡頭
+      video: { facingMode: { exact: "environment" } },
       audio: false
     }).then(stream => {
       video.srcObject = stream;
@@ -92,8 +93,16 @@
     captureBtn.addEventListener('click', () => {
       if (currentPhoto >= 4) return;
 
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      photos.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      // 擷取一張圖像並儲存為 image
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const img = new Image();
+      img.src = tempCanvas.toDataURL('image/png');
+      photos.push(img);
+
       currentPhoto++;
 
       if (currentPhoto < 4) {
@@ -101,23 +110,31 @@
       } else {
         captureBtn.disabled = true;
         captureBtn.textContent = `✅ 拍攝完成`;
-        drawFinalComposite();
         downloadBtn.disabled = false;
       }
+
+      redrawCanvas();
     });
 
-    function drawFinalComposite() {
-      // 把四張照片貼在 canvas 上，暫時簡單覆蓋
+    function redrawCanvas() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (let i = 0; i < 4; i++) {
-        ctx.putImageData(photos[i], 0, 0);
-      }
 
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height); // 模板疊最上層
+      // 每張照片依序疊上來
+      photos.forEach(photo => {
+        photo.onload = () => {
+          ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
+        };
+        if (photo.complete) {
+          ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
+        }
+      });
+
+      // 套模板在最上層
+      const template = new Image();
+      template.src = templateImg.src;
+      template.onload = () => {
+        ctx.drawImage(template, 0, 0, canvas.width, canvas.height);
       };
-      img.src = templateImg.src;
     }
 
     downloadBtn.addEventListener('click', () => {
