@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>四連拍遊戲</title>
+  <title>HOME CAPTRUE</title>
   <style>
     html, body {
       margin: 0;
@@ -64,7 +64,7 @@
     <canvas id="canvas" width="1080" height="1920"></canvas>
     <img id="template" src="template.png" alt="template" />
     <div id="controls">
-      <button id="captureBtn">📸 拍照 (1/4)</button>
+      <button id="captureBtn">📸 拍照</button>
       <button id="downloadBtn" disabled>⬇️ 下載</button>
     </div>
   </div>
@@ -77,8 +77,7 @@
     const downloadBtn = document.getElementById('downloadBtn');
     const templateImg = document.getElementById('template');
 
-    let photos = [];
-    let currentPhoto = 0;
+    let captured = false;
 
     // 啟用後鏡頭
     navigator.mediaDevices.getUserMedia({
@@ -91,44 +90,17 @@
     });
 
     captureBtn.addEventListener('click', () => {
-      if (currentPhoto >= 4) return;
+      if (captured) return;
 
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = canvas.width;
-      tempCanvas.height = canvas.height;
-      const tempCtx = tempCanvas.getContext('2d');
-      tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const img = new Image();
-      img.src = tempCanvas.toDataURL('image/png');
-      photos.push(img);
-
-      currentPhoto++;
-
-      if (currentPhoto < 4) {
-        captureBtn.textContent = `📸 拍照 (${currentPhoto + 1}/4)`;
-      } else {
-        captureBtn.disabled = true;
-        captureBtn.textContent = `✅ 拍攝完成`;
-        downloadBtn.disabled = false;
-      }
-
-      redrawCanvas();
-    });
-
-    function redrawCanvas() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      photos.forEach(photo => {
-        photo.onload = () => {
-          ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
-          drawTemplate();
-        };
-        if (photo.complete) {
-          ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
-        }
-      });
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       drawTemplate();
-    }
+
+      captureBtn.disabled = true;
+      captureBtn.textContent = `✅ 拍攝完成`;
+      downloadBtn.disabled = false;
+
+      captured = true;
+    });
 
     function drawTemplate() {
       const template = new Image();
@@ -143,7 +115,7 @@
 
     downloadBtn.addEventListener('click', () => {
       const link = document.createElement('a');
-      link.download = '四連拍.png';
+      link.download = 'HOME.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
     });
